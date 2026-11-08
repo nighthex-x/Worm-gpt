@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGHT HEX AI · Admin</title><link rel="stylesheet" href="/style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
+<body><main style="max-width:1100px;margin:auto;padding:24px">
+<header style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div class="brand"><span class="brand-mark">N</span>NIGHT HEX <small>ADMIN</small></div><a href="/" style="color:#62e6f5">← Back to chat</a></header>
+<section style="margin:35px 0"><div class="eyebrow">CONTROL CENTER</div><h1>Admin Dashboard</h1><p class="muted">User overview and platform activity. Access is restricted to the configured admin email.</p></section>
+<div id="notice" class="muted">Checking admin access…</div>
+<div id="stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:20px 0"></div>
+<div style="overflow:auto;background:#0d1422;border:1px solid #1c2a40;border-radius:12px;padding:14px"><h3>Registered users</h3><table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left"><thead><tr><th style="padding:10px">Email</th><th>Created</th><th>Last sign in</th><th>Email confirmed</th></tr></thead><tbody id="users"></tbody></table></div>
+</main><script src="/admin.js"></script></body></html>

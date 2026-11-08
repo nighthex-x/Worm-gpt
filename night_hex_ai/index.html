@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <title>NIGHT HEX AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><span class="brand-mark">N</span><span>NIGHT HEX <small>AI</small></span></div>
+      <button class="new-chat" id="newChat">＋ <span>New chat</span></button>
+      <div class="side-label">YOUR CONVERSATIONS</div>
+      <div id="history" class="history"><div class="muted small">Your chats will appear here.</div></div>
+      <div class="side-bottom">
+        <button class="side-link" id="themeToggle">◐ <span>Toggle appearance</span></button>
+        <button class="side-link" id="accountBtn">♙ <span>Account</span></button>
+        <div class="credit">Developed by <a href="https://t.me/NightHex_X" target="_blank" rel="noopener">NIGHT HEX ↗</a></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button>
+        <div class="top-title">NIGHT HEX <span>AI</span></div>
+        <div class="top-actions">
+          <span class="status-dot"></span><span class="status-text">AI READY</span>
+          <button class="login-small" id="topAuth">Sign in</button>
+        </div>
+      </header>
+
+      <section class="chat-wrap">
+        <div class="welcome" id="welcome">
+          <div class="core"><div class="core-inner">N</div><i></i><b></b></div>
+          <div class="eyebrow">YOUR INTELLIGENT ASSISTANT</div>
+          <h1>What can I help<br><em>you with today?</em></h1>
+          <p>Ask anything. Explore ideas. Get things done.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-prompt="Explain a difficult topic in simple words.">✦ <span>Explain something</span></button>
+            <button class="suggestion" data-prompt="Help me write a professional message.">✎ <span>Write something</span></button>
+            <button class="suggestion" data-prompt="Help me debug this code:">⌘ <span>Debug code</span></button>
+          </div>
+        </div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+      </section>
+
+      <footer class="composer-area">
+        <div class="composer">
+          <textarea id="prompt" rows="1" maxlength="12000" placeholder="Message NIGHT HEX AI..."></textarea>
+          <button id="sendBtn" class="send-btn" aria-label="Send message"><span>↑</span></button>
+        </div>
+        <div class="composer-meta"><span>Text-only AI chat</span><span id="usageLabel">Guest access · limited questions</span></div>
+        <div class="disclaimer">AI can make mistakes. Check important information.</div>
+      </footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal">
+      <button class="modal-x" data-close="authModal">×</button>
+      <div class="modal-logo">N</div>
+      <h2 id="authTitle">Welcome back</h2>
+      <p class="muted" id="authSubtitle">Sign in to continue your conversations.</p>
+      <form id="authForm">
+        <label for="displayName" id="nameLabel" class="hidden">Your name</label>
+        <input id="displayName" class="hidden" autocomplete="name" placeholder="Your name">
+        <label for="email">Email address</label>
+        <input id="email" type="email" required autocomplete="email" placeholder="name@example.com">
+        <label for="password">Password</label>
+        <input id="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters">
+        <button class="primary-btn" id="authSubmit">Sign in</button>
+      </form>
+      <div class="auth-switch"><span id="switchText">New here?</span> <button id="switchAuth">Create account</button></div>
+      <div class="fineprint">Use an email address you control. Email confirmation must be disabled in your Supabase Auth settings for instant registration.</div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="accountModal">
+    <div class="modal">
+      <button class="modal-x" data-close="accountModal">×</button>
+      <h2>Your account</h2>
+      <div id="accountInfo" class="account-info"></div>
+      <button class="secondary-btn" id="signOutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -3,12 +3,13 @@ const reply=(res,status,body)=>{res.setHeader("Cache-Control","no-store, private
 const clean=(v,n=500)=>typeof v==="string"?v.trim().slice(0,n):"";
 export default async function handler(req,res){
  if(!["GET","POST"].includes(req.method))return reply(res,405,{error:"Method not allowed"});
- const {SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ADMIN_EMAIL}=process.env;
- if(!SUPABASE_URL||!SUPABASE_SERVICE_ROLE_KEY||!ADMIN_EMAIL)return reply(res,503,{error:"Admin service is not configured"});
+ const PROJECT_URL = "https://mskcclqkvmurlcwwfgyr.supabase.co";
+ const {SUPABASE_SERVICE_ROLE_KEY,ADMIN_EMAIL}=process.env;
+ if(!SUPABASE_SERVICE_ROLE_KEY||!ADMIN_EMAIL)return reply(res,503,{error:"Admin service is not configured"});
  const token=(req.headers.authorization||"").startsWith("Bearer ")?(req.headers.authorization||"").slice(7).trim():"";
  if(!token||token.length>4096)return reply(res,401,{error:"Sign in required"});
  try{
-  const db=createClient(SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  const db=createClient(PROJECT_URL,SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
   const {data:auth,error:authErr}=await db.auth.getUser(token);const actor=auth?.user;
   if(authErr||!actor)return reply(res,401,{error:"Invalid or expired session"});
   const adminEmail=ADMIN_EMAIL.trim().toLowerCase();
@@ -50,5 +51,5 @@ export default async function handler(req,res){
   const eventRows=events.data||[];const today=new Date();today.setHours(0,0,0,0);const todayEvents=eventRows.filter(e=>new Date(e.created_at)>=today);const activeToday=new Set(todayEvents.map(e=>e.user_id).filter(Boolean)).size;const categoryCounts={};for(const e of eventRows)categoryCounts[e.category]=(categoryCounts[e.category]||0)+1;
   const safeUsers=(users.data.users||[]).map(u=>({id:u.id,email:u.email||null,name:u.user_metadata?.display_name||u.user_metadata?.name||"—",created_at:u.created_at,last_sign_in_at:u.last_sign_in_at,email_confirmed_at:u.email_confirmed_at,banned_until:u.banned_until}));
   return reply(res,200,{admin:{email:actor.email},totals:{users:safeUsers.length,chats:chats.count||0,messages:messages.count||0,activeToday},users:safeUsers,maintenance:settings.data||{maintenance_enabled:false,maintenance_message:""},announcements:announcements.data||[],analytics:{categories:categoryCounts,events30d:eventRows.length}});
- }catch(e){console.error("Admin API:",e);return reply(res,500,{error:"Internal server error"});}
+ }catch(e){console.error("[NIGHT HEX ADMIN API ERROR]", e?.message || e);return reply(res,500,{error:"Admin API failed. Check Render Logs."});}
 }

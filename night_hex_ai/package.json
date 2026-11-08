@@ -1,11 +1,18 @@
+
 {
   "name": "night-hex-ai",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "vercel dev" },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.49.1"
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node server.js"
   },
-  "devDependencies": { "vercel": "^39.4.2" }
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "vercel": "^39.4.2"
+  }
 }

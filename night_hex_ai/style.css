@@ -127,3 +127,10 @@ body.light.admin-page{background:#f3f6fb}
 .admin-duration{max-width:132px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;margin:3px 5px 3px 0}
 .danger-btn{width:auto!important;margin:3px 0!important;padding:9px 12px!important;background:#512a38!important;border-color:#754052!important;color:#ffe8ef!important}
 body.light .danger-btn{background:#fff0f2!important;color:#9d2944!important;border-color:#f0c8d2!important}
+
+/* NIGHT HEX interaction polish */
+.button-spinner{display:inline-block;width:15px;height:15px;vertical-align:-3px;margin-right:8px;border:2px solid #14283b55;border-top-color:#07101b;border-radius:50%;animation:spin .7s linear infinite}
+.scan{min-height:42px}.loader-orbit{width:30px;height:30px;box-shadow:0 0 18px #65e4ee22}
+.message.user .bubble{flex:0 1 auto;width:auto;min-width:0;max-width:min(78%,560px);overflow-wrap:anywhere}
+.modal-x:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

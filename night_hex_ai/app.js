@@ -12,6 +12,7 @@ function showModal(id){$(id).classList.add("open")}
 function hideModal(id){$(id).classList.remove("open")}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderText(t){return escapeHtml(t).replace(/```([\s\S]*?)```/g,(_,c)=>`<pre><code>${c.trim()}</code></pre>`).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}
+function normalizeBranding(text){return String(text||"").replace(/\bX\s*Rahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bXrahat\b/gi,"NIGHT HEX").replace(/\bRahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bRahat\b/gi,"NIGHT HEX")}
 function addMessage(role,text,tools=false){
  $("welcome").classList.add("hidden");
  const row=document.createElement("div");row.className=`message ${role}`;
@@ -80,7 +81,7 @@ async function saveMessage(chatId,role,content){
 }
 function scanning(){
  const row=document.createElement("div");row.className="scan";
- row.innerHTML='<span class="loader-orbit"><i></i><b></b></span><span class="loading-label">Thinking</span>';
+ row.innerHTML='<span class="loader-orbit" aria-label="Generating response"><i></i><b></b></span>';
  $("messages").append(row);$("messages").scrollTop=$("messages").scrollHeight;return row;
 }
 async function sendMessage(prefill){
@@ -109,6 +110,8 @@ async function sendMessage(prefill){
    }
   }else{const data=await response.json();if(data.error)throw new Error(data.error);answer=data.reply||"";if(!answer)throw new Error("AI response was empty.");loader.remove();assistantBubble=addMessage("assistant",answer)}
   if(!answer.trim())throw new Error("The AI returned an empty response.");
+  answer=normalizeBranding(answer);
+  if(assistantBubble)assistantBubble.innerHTML=renderText(answer);
   addCopy(assistantBubble,answer);
   if(currentUser&&chatId){await saveMessage(chatId,"assistant",answer);await loadHistory()}else if(!currentUser){persistGuestMessage("assistant",answer)}
  }catch(err){loader.remove();addMessage("assistant",`Sorry, I couldn't get a response. ${err.message||"Please try again."}`);console.error(err)}
@@ -125,21 +128,28 @@ $("topAuth").onclick=()=>currentUser?(showModal("accountModal"),renderAccount())
 $("accountBtn").onclick=()=>{closeDrawer();currentUser?(showModal("accountModal"),renderAccount()):(setMode("signin"),showModal("authModal"))};
 $("switchAuth").onclick=()=>setMode(authMode==="signin"?"signup":"signin");
 $("authForm").onsubmit=async e=>{
- e.preventDefault();if(!sb){toast("Supabase setup is incomplete.");return}
- const email=$("email").value.trim(),password=$("password").value,name=$("displayName").value.trim();$("authSubmit").disabled=true;
+ e.preventDefault();if(!sb){toast("Account service is temporarily unavailable.");return}
+ const email=$("email").value.trim(),password=$("password").value,name=$("displayName").value.trim();
+ const button=$("authSubmit"),original=authMode==="signup"?"Create account":"Sign in";
+ button.disabled=true;button.innerHTML='<span class="button-spinner"></span> Please wait…';
  try{
   if(authMode==="signup"){
    const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name}}});
    if(error)throw error;
-   if(!data.session){toast("Account created, but email confirmation is enabled. Turn off Confirm email in Supabase Auth settings for automatic sign-in.");return}
-   toast("Account created and signed in successfully.");
+   if(!data.session){toast("Account created. Email confirmation is still required; check your email.");return}
+   currentUser=data.user||data.session.user;toast("Account created successfully.");
   }else{
-   const {error}=await sb.auth.signInWithPassword({email,password});
+   const {data,error}=await sb.auth.signInWithPassword({email,password});
    if(error)throw error;
-   toast("Signed in successfully");
+   currentUser=data.user;toast("Welcome back.");
   }
-  hideModal("authModal");await refreshAuth();
- }catch(err){toast(err.message||"Authentication failed")}finally{$("authSubmit").disabled=false}
+  hideModal("authModal");$("authForm").reset();await refreshAuth();newChat();
+ }catch(err){
+  const msg=String(err.message||"");
+  if(/rate limit|email rate/i.test(msg))toast("Email sending limit reached. Wait a while, then try again.");
+  else if(/already registered|already been registered/i.test(msg))toast("This email is already registered. Choose Sign in.");
+  else toast(msg||"Authentication failed.");
+ }finally{button.disabled=false;button.textContent=original}
 };
 async function renderAccount(){if(!sb)return;const {data}=await sb.auth.getUser();$("accountInfo").textContent=`Email: ${data.user?.email||"—"}\nUser ID: ${data.user?.id||"—"}`}
 $("signOutBtn").onclick=async()=>{await sb.auth.signOut();currentUser=null;activeChatId=null;newChat();hideModal("accountModal");setAuthUI();renderHistory();toast("Signed out")};
@@ -148,3 +158,5 @@ document.querySelectorAll(".modal-backdrop").forEach(back=>back.addEventListener
 document.querySelectorAll(".suggestion").forEach(b=>b.onclick=()=>{$("prompt").value=b.dataset.prompt;$("prompt").focus()});
 if(localStorage.getItem("nh_theme")==="light")document.body.classList.add("light");
 (async()=>{setMode("signin");setUsage();if(supabaseReady)await refreshAuth();else renderHistory()})();
+
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeDrawer();document.querySelectorAll(".modal-backdrop.open").forEach(m=>m.classList.remove("open"))}});

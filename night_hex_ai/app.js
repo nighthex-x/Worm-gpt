@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY="sb_publishable_rxjUd6jKp9-I71GItqOlAA_s1vZEepz";
 const supabaseReady=SUPABASE_URL.startsWith("https://")&&!SUPABASE_ANON_KEY.includes("YOUR_");
 const sb=supabaseReady?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 const $=id=>document.getElementById(id);
-let currentUser=null,authMode="signin",busy=false,activeChatId=null,chatTitle="New chat",announcements=[],maintenanceActive=false,statusUnavailable=false,statusCheckInFlight=false;
+let currentUser=null,authMode="signin",busy=false,activeChatId=null,chatTitle="New chat",announcements=[],maintenanceActive=false,statusUnavailable=false,statusCheckInFlight=false,activeChatController=null;
 let guestCount=Number(localStorage.getItem("nh_guest_count")||0);
 let guestChats=[];try{guestChats=JSON.parse(localStorage.getItem("nh_guest_chats")||"[]");if(!Array.isArray(guestChats))guestChats=[]}catch{guestChats=[]}
 const GUEST_LIMIT=5;
@@ -13,12 +13,14 @@ function hideModal(id){$(id).classList.remove("open")}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderText(t){return escapeHtml(t).replace(/```([\s\S]*?)```/g,(_,c)=>`<pre><code>${c.trim()}</code></pre>`).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}
 function normalizeBranding(text){
- // Change only explicit self-identification phrases. Do not rewrite names mentioned in normal answers.
- return String(text||"")
-  .replace(/\b(?:I\s+am|I\'m|I\s+am\s+an|my\s+name\s+is|this\s+is|you\s+are\s+talking\s+to|you\'re\s+talking\s+to|as)\s+(?:the\s+)?(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul(?:\s+Hossain)?)(?:\s+AI)?\b/gi, "I am NIGHT HEX AI")
-  .replace(/^\s*(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul)\s+AI\b/gim, "NIGHT HEX AI")
-  .replace(/আমার নাম\s+(?:এক্সরাহাত|রাহাত|রফিকুল)(?:\s+হোসেন)?/gi, "আমার নাম NIGHT HEX AI")
-  .replace(/আমি\s+(?:এক্স\s*রাহাত|এক্সরাহাত|এক্সট্রা\s*হ্যাট|রাহাত|রফিকুল)(?:\s+এআই)?/gi, "আমি NIGHT HEX AI");
+ // Rewrite only explicit assistant self-identification in normal prose.
+ // Fenced and inline code are preserved exactly, including strings containing provider names.
+ const normalizeProse=part=>String(part||"")
+  .replace(/((?:আমার\s*নাম|আমি)\s*)(?:এক্স\s*রাহাত|এক্সরাহাত|এক্সট্রা\s*হ্যাট|X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul(?:\s+Hossain)?)(?:\s*(?:এআই|AI))?/gi,"$1NIGHT HEX AI")
+  .replace(/((?:I\s+am|I'm|I’m|my\s+name\s+is|this\s+is|you\s+are\s+talking\s+to|you're\s+talking\s+to)\s+(?:the\s+)?)(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul(?:\s+Hossain)?)(?:\s+AI)?/gi,"$1NIGHT HEX AI")
+  .replace(/^(\s*)(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul)\s+AI\b/gim,"$1NIGHT HEX AI");
+ const chunks=String(text||"").split(/(```[\s\S]*?(?:```|$)|`[^`\n]*(?:`|$))/g);
+ return chunks.map((chunk,i)=>(i%2===1)?chunk:normalizeProse(chunk)).join("");
 }
 function nearBottom(){const m=$("messages");return m.scrollHeight-m.scrollTop-m.clientHeight<140}
 function scrollLatest(force=false){const m=$("messages");if(force||nearBottom())m.scrollTo({top:m.scrollHeight,behavior:"smooth"})}
@@ -132,11 +134,12 @@ async function sendMessage(prefill){
  const chatIdPromise=ensureChat(text); // Start creating the conversation without blocking the API request.
  const loader=scanning();let assistantBubble=null,answer="";
  const appendStreamText=chunk=>{if(!chunk)return;if(!assistantBubble){loader.remove();assistantBubble=addMessage("assistant","")}answer+=chunk;assistantBubble.innerHTML=renderText(normalizeBranding(answer));scrollLatest();updateScrollButton()};
+ activeChatController=new AbortController();
  try{
   const sessionResult=currentUser?await sb.auth.getSession():{data:{session:null}};
   const authHeaders={"Content-Type":"application/json","Accept":"text/event-stream"};
   if(sessionResult.data.session?.access_token)authHeaders.Authorization="Bearer "+sessionResult.data.session.access_token;
-  const response=await fetch("/api/chat",{method:"POST",headers:authHeaders,body:JSON.stringify({text,uid:currentUser?currentUser.id:(localStorage.getItem("nh_guest_uid")||makeGuestUid())})});
+  const response=await fetch("/api/chat",{method:"POST",headers:authHeaders,body:JSON.stringify({text,uid:currentUser?currentUser.id:(localStorage.getItem("nh_guest_uid")||makeGuestUid())}),signal:activeChatController.signal});
   if(!response.ok)throw new Error((await response.text()).slice(0,250)||`Request failed (${response.status})`);
   const type=response.headers.get("content-type")||"";
   if(type.includes("text/event-stream")&&response.body){
@@ -168,8 +171,8 @@ async function sendMessage(prefill){
   addCopy(assistantBubble,answer);
   if(currentUser){const chatId=await chatIdPromise;if(chatId){await saveMessage(chatId,"user",text);await saveMessage(chatId,"assistant",answer);$("chatActions").classList.remove("hidden");await loadHistory()}}
   else{persistGuestMessage("assistant",answer)}
- }catch(err){loader.remove();if(currentUser){const failedChatId=await chatIdPromise.catch(()=>null);if(failedChatId)await saveMessage(failedChatId,"user",text)}addMessage("assistant",`Sorry, I couldn't get a response. ${err.message||"Please try again."}`);console.error(err)}
- finally{busy=false;$("sendBtn").disabled=maintenanceActive||statusUnavailable;$("prompt").disabled=maintenanceActive||statusUnavailable;$("prompt").focus()}
+ }catch(err){loader.remove();if(err.name==="AbortError"&&(maintenanceActive||statusUnavailable)){if(assistantBubble)assistantBubble.parentElement?.remove();}else{if(currentUser){const failedChatId=await chatIdPromise.catch(()=>null);if(failedChatId)await saveMessage(failedChatId,"user",text)}addMessage("assistant",`Sorry, I couldn't get a response. ${err.message||"Please try again."}`);console.error(err)}}
+ finally{activeChatController=null;busy=false;$("sendBtn").disabled=maintenanceActive||statusUnavailable;$("prompt").disabled=maintenanceActive||statusUnavailable;$("prompt").focus()}
 }
 function makeGuestUid(){const id="guest_"+crypto.randomUUID();localStorage.setItem("nh_guest_uid",id);return id}
 $("sendBtn").onclick=()=>sendMessage();
@@ -195,16 +198,16 @@ async function refreshPublicStatus(){
   statusUnavailable=false;maintenanceActive=!!d.maintenance;announcements=d.announcements||[];
   const bar=$('announcementBar');bar.replaceChildren();
   if(announcements.length){bar.classList.remove('hidden');announcements.forEach(a=>{const p=document.createElement('div');p.className='announcement-pill';p.textContent='● '+a.title+': '+a.message;bar.append(p)});$('notificationDot').classList.remove('hidden')}else{bar.classList.add('hidden');$('notificationDot').classList.add('hidden')}
-  if(maintenanceActive){$('maintenanceMessage').textContent=d.message||'NIGHT HEX AI is temporarily under maintenance.';$('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true;$('prompt').placeholder='Website is under maintenance';}
+  if(maintenanceActive){$('maintenanceMessage').textContent=d.message||'NIGHT HEX AI is temporarily under maintenance.';$('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true;$('prompt').placeholder='Website is under maintenance';if(activeChatController)activeChatController.abort();}
   else{$('maintenanceModal').classList.remove('open');$('sendBtn').disabled=busy;$('prompt').disabled=false;$('prompt').placeholder='Message NIGHT HEX AI...';}
  }catch(e){
-  console.warn('Status check failed',e);statusUnavailable=true;maintenanceActive=true;
+  console.warn('Status check failed',e);statusUnavailable=true;maintenanceActive=true;if(activeChatController)activeChatController.abort();
   $('maintenanceMessage').textContent=e.message||'NIGHT HEX AI is temporarily unavailable. Please try again shortly.';
   $('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true;$('prompt').placeholder='Temporarily unavailable';
  }finally{statusCheckInFlight=false;}
 }
 // Poll frequently for admin changes; also refresh immediately when the tab becomes visible again.
-setInterval(()=>{if(document.visibilityState==='visible')refreshPublicStatus()},5000);
+setInterval(()=>{if(document.visibilityState==='visible')refreshPublicStatus()},2500);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshPublicStatus()});
 window.addEventListener('focus',refreshPublicStatus);
 $('notificationBtn').onclick=()=>{const box=$('notificationList');box.replaceChildren();if(!announcements.length){box.textContent='No new notifications.'}else announcements.forEach(a=>{const el=document.createElement('article');el.className='notification-item';const h=document.createElement('strong');h.textContent=a.title;const p=document.createElement('p');p.textContent=a.message;el.append(h,p);box.append(el)});$('notificationDot').classList.add('hidden');showModal('notificationsModal')};

@@ -115,3 +115,13 @@ Supabase Dashboard → Authentication → Sign In / Providers → Email-এ `Con
 - Added refresh control, account status filter, and server/admin health indicators.
 - Existing maintenance, announcement, analytics, password-reset, block/unblock and persistent admin login flows are retained.
 - JavaScript syntax and admin HTML element references were checked locally. Live deployment still needs testing on the user's Render/Supabase project.
+
+
+## Admin Panel V2 Update
+- Admin dashboard is now compact; every control opens in a separate modal panel.
+- User manager supports username/email/ID search, active/blocked filtering, custom block durations, unblock and password-reset email.
+- Maintenance supports minute/hour/day/30-day-month duration and automatically ends on the server when its timer expires. No extra SQL migration is required; the expiry is stored in the existing maintenance message field.
+- Announcements, aggregate analytics, system health and security/session details each have separate panels.
+- Admin page scrolling and modal scrolling are enabled for mobile screens.
+- Chat stream headers are flushed immediately where supported; actual provider latency still depends on the upstream AI service.
+- Client-side response cleanup replaces common accidental Rofiqul/Rahat identity mentions with NIGHT HEX branding.

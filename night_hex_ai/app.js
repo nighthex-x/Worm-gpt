@@ -12,7 +12,7 @@ function showModal(id){$(id).classList.add("open")}
 function hideModal(id){$(id).classList.remove("open")}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderText(t){return escapeHtml(t).replace(/```([\s\S]*?)```/g,(_,c)=>`<pre><code>${c.trim()}</code></pre>`).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}
-function normalizeBranding(text){return String(text||"").replace(/\bX\s*Rahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bXrahat\b/gi,"NIGHT HEX").replace(/\bRahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bRahat\b/gi,"NIGHT HEX").replace(/রাহাত\s*এআই/gi,"NIGHT HEX AI").replace(/রাহাত/gi,"NIGHT HEX")}
+function normalizeBranding(text){return String(text||"").replace(/\bX\s*Rahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bXrahat\b/gi,"NIGHT HEX").replace(/\bRahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bRahat\b/gi,"NIGHT HEX").replace(/\b(?:my name is|i am|i'm)\s+Rofiqul(?:\s+Hossain)?\b/gi,"I am NIGHT HEX AI").replace(/আমার নাম\s+রফিকুল(?:\s+হোসেন)?/gi,"আমি NIGHT HEX AI").replace(/রাহাত\s*এআই/gi,"NIGHT HEX AI").replace(/রাহাত/gi,"NIGHT HEX")}
 function nearBottom(){const m=$("messages");return m.scrollHeight-m.scrollTop-m.clientHeight<140}
 function scrollLatest(force=false){const m=$("messages");if(force||nearBottom())m.scrollTo({top:m.scrollHeight,behavior:"smooth"})}
 function updateScrollButton(){const m=$("messages");$("scrollBottom").classList.toggle("hidden",m.scrollHeight-m.scrollTop-m.clientHeight<180)}

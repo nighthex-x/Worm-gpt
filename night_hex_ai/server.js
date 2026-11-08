@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import chatHandler from "./api/chat.js";
 import adminHandler from "./api/admin.js";
+import statusHandler from "./api/status.js";
+import shareHandler from "./api/share.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +17,9 @@ app.get("/health", (req, res) => res.status(200).json({ status: "NIGHT HEX AI is
 app.post("/api/chat", (req, res) => chatHandler(req, res));
 // Both dashboard reads and account-control actions must pass the same server-side check.
 app.all("/api/admin", (req, res) => adminHandler(req, res));
+app.all("/api/status", (req, res) => statusHandler(req, res));
+app.all("/api/share", (req, res) => shareHandler(req, res));
+app.get("/share/:token", (req, res) => res.sendFile(path.join(__dirname, "share.html")));
 
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "admin.html")));
 app.get("/admin.html", (req, res) => res.redirect(301, "/admin"));

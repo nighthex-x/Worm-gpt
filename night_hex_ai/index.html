@@ -31,7 +31,7 @@
     <header class="topbar">
       <button class="mobile-menu icon-btn" id="menuBtn" aria-label="Open menu">☰</button>
       <a class="top-title" href="/">NIGHT HEX <span>AI</span></a>
-      <div class="top-actions"><span class="status-dot"></span><span class="status-text">AI READY</span><button class="login-small" id="topAuth">Sign in</button></div>
+      <div class="top-actions"><span class="status-dot"></span><span class="status-text">AI READY</span><button class="notification-btn" id="notificationBtn" aria-label="Notifications">♧<i id="notificationDot" class="notification-dot hidden"></i></button><button class="login-small" id="topAuth">Sign in</button></div>
     </header>
     <section class="chat-wrap">
       <div class="welcome" id="welcome">
@@ -45,7 +45,10 @@
           <button class="suggestion" data-prompt="Help me debug this code:">⌘ <span>Debug code</span></button>
         </div>
       </div>
+      <div id="announcementBar" class="announcement-bar hidden"></div>
+      <div class="chat-actions hidden" id="chatActions"><button id="renameChatBtn">Rename</button><button id="exportChatBtn">Save PDF</button><button id="shareChatBtn">Share link</button><button id="deleteChatBtn" class="chat-delete">Delete</button></div>
       <div id="messages" class="messages" aria-live="polite"></div>
+      <button id="scrollBottom" class="scroll-bottom hidden" aria-label="Jump to latest message">↓</button>
     </section>
     <footer class="composer-area">
       <div class="composer"><textarea id="prompt" rows="1" maxlength="12000" placeholder="Message NIGHT HEX AI..." aria-label="Message NIGHT HEX AI"></textarea><button id="sendBtn" class="send-btn" aria-label="Send message"><span>↑</span></button></div>
@@ -63,6 +66,8 @@
   <div class="fineprint">Your password is private and cannot be viewed by the site administrator.</div>
 </div></div>
 <div class="modal-backdrop" id="accountModal"><div class="modal"><button class="modal-x" data-close="accountModal">×</button><h2>Your account</h2><div id="accountInfo" class="account-info"></div><button class="secondary-btn" id="signOutBtn">Sign out</button></div></div>
+<div class="modal-backdrop" id="maintenanceModal"><div class="modal maintenance-modal"><div class="maintenance-icon">⚙</div><h2>Temporarily unavailable</h2><p id="maintenanceMessage" class="muted"></p></div></div>
+<div class="modal-backdrop" id="notificationsModal"><div class="modal"><button class="modal-x" data-close="notificationsModal">×</button><h2>Notifications</h2><div id="notificationList" class="notification-list"></div></div></div>
 <div class="toast" id="toast" role="status"></div>
 <script src="/app.js"></script>
 </body></html>

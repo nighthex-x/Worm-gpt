@@ -62,3 +62,40 @@ Passwords are never displayed to administrators. Supabase handles password authe
 - AI provider, Supabase, and Render usage limits still apply.
 - The admin endpoint lists up to 1,000 users in this version. On Render, both GET (dashboard) and POST (block/unblock) requests are routed through the same protected admin handler. Chat requests from signed-in users include their access token so the server can reject active bans.
 - This is an updated starter build, not a guarantee of production security or load testing. Add server-side rate limiting, privacy policy, backups, and monitoring before a public launch.
+
+## Advanced Update (November 2026)
+এই সংস্করণে যোগ হয়েছে:
+- স্থির নিচের Composer; চ্যাটের মাঝখানে স্ক্রল করলেও টাইপিং বক্স নিচে থাকবে।
+- নিচে ফেরার Floating Arrow; নিচে পৌঁছালে নিজে থেকে লুকাবে।
+- Chat Rename, Delete, Print-to-PDF এবং shareable read-only link.
+- Admin Dashboard: নাম/ইমেইল, joined/last active, search, temporary/long-term block, unblock, password reset email.
+- Maintenance mode: visitor-দের জন্য custom message এবং chat API-তেও server-side maintenance check; configured Admin bypass করতে পারবেন।
+- Announcements/Notifications এবং ৩০ দিনের category-based usage overview. Message content analytics-এ রাখা হয় না।
+- True white light theme এবং dark theme; mobile fixed layout.
+
+### নতুন Environment Variable
+Render → Environment:
+- `SUPABASE_URL` = Supabase Project URL (শেষে `/rest/v1/` নয়)
+- `SUPABASE_SERVICE_ROLE_KEY` = Supabase secret/service-role key (শুধু Render Environment-এ; GitHub বা frontend-এ নয়)
+- `ADMIN_EMAIL` = একমাত্র Admin account-এর email
+- `SITE_URL` = ঐচ্ছিক, যেমন `https://your-render-domain.onrender.com` (share link এবং password reset redirect-এর জন্য সুপারিশকৃত)
+
+### Database Update বাধ্যতামূলক
+Supabase → SQL Editor-এ এই ZIP-এর `schema.sql` ফাইলের সম্পূর্ণ SQL আবার Run করুন। এটি আগের chats/messages টেবিল মুছে না; নতুন maintenance, announcements, analytics এবং shared conversation টেবিল তৈরি করে।
+
+### Deploy
+1. ZIP Extract করে সব ফাইল GitHub repository root-এ replace/upload করুন; `api` এবং `assets` ফোল্ডার root-এ থাকবে।
+2. Supabase SQL update Run করুন।
+3. Render-এ Environment Variables যাচাই করুন। Service-role key কখনো GitHub-এ রাখবেন না।
+4. Render-এ Deploy latest commit দিন।
+5. `/admin` খুলে নির্ধারিত Admin email দিয়ে লগইন করুন। Refresh করলে Supabase session valid থাকলে আবার password চাইবে না।
+
+নিরাপত্তা/সীমাবদ্ধতা:
+- Admin ইউজারের পুরোনো পাসওয়ার্ড দেখতে পারবেন না; শুধু reset email পাঠাতে পারবেন।
+- Share link যার কাছে থাকবে সে ওই conversation পড়তে পারবে; সংবেদনশীল তথ্য থাকা chat share করবেন না।
+- Analytics কেবল category count এবং authenticated active users-এর event count রাখে; raw prompt সংরক্ষণ করে না।
+- Browser-এর PDF export Print dialog ব্যবহার করে; সেখানে Save as PDF নির্বাচন করুন।
+- এই ZIP local syntax check করা হয়েছে; তোমার Render/Supabase live environment-এ deploy করে end-to-end test করা হয়নি।
+
+### Signup-এর পর সঙ্গে সঙ্গে Login
+Supabase Dashboard → Authentication → Sign In / Providers → Email-এ `Confirm email` OFF করলে নতুন অ্যাকাউন্ট তৈরি হওয়ার পর সঙ্গে সঙ্গে session তৈরি হবে এবং সাইটে ঢুকবে। Email ownership verify না হওয়ায় এটি কম নিরাপদ; public website-এ Confirm email ON রাখাই ভালো। Confirm email ON থাকলে inbox verification ছাড়া auto-login সম্ভব নয়।

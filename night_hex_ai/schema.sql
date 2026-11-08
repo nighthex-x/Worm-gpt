@@ -75,3 +75,54 @@ with check (
 create policy "Users can delete own messages"
 on public.messages for delete
 using (auth.uid() = user_id);
+
+-- NIGHT HEX AI advanced controls, announcements, analytics and conversation sharing
+create table if not exists public.site_settings (
+  id integer primary key check (id = 1),
+  maintenance_enabled boolean not null default false,
+  maintenance_message text not null default 'NIGHT HEX AI is temporarily under maintenance. Please try again later.',
+  updated_at timestamptz not null default now()
+);
+insert into public.site_settings (id) values (1) on conflict (id) do nothing;
+
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  message text not null,
+  active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.usage_events (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete set null,
+  category text not null default 'general',
+  created_at timestamptz not null default now()
+);
+create index if not exists usage_events_created_idx on public.usage_events(created_at desc);
+create index if not exists usage_events_user_created_idx on public.usage_events(user_id,created_at desc);
+
+create table if not exists public.shared_chats (
+  id uuid primary key default gen_random_uuid(),
+  token uuid not null unique default gen_random_uuid(),
+  chat_id uuid not null references public.chats(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique(chat_id,user_id)
+);
+
+alter table public.site_settings enable row level security;
+alter table public.announcements enable row level security;
+alter table public.usage_events enable row level security;
+alter table public.shared_chats enable row level security;
+
+drop policy if exists "Public can read announcements" on public.announcements;
+create policy "Public can read announcements" on public.announcements for select using (active = true);
+drop policy if exists "Users can read own shared chat records" on public.shared_chats;
+create policy "Users can read own shared chat records" on public.shared_chats for select using (auth.uid() = user_id);
+drop policy if exists "Users can create own shared chat records" on public.shared_chats;
+create policy "Users can create own shared chat records" on public.shared_chats for insert with check (auth.uid() = user_id and exists (select 1 from public.chats c where c.id = chat_id and c.user_id = auth.uid()));
+drop policy if exists "Users can delete own shared chat records" on public.shared_chats;
+create policy "Users can delete own shared chat records" on public.shared_chats for delete using (auth.uid() = user_id);
+-- No client policies for site_settings or usage_events. Service role accesses them server-side.

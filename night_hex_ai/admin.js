@@ -1,24 +1,302 @@
-const URL="https://mskcclqkvmurlcwwfgyr.supabase.co",KEY="sb_publishable_rxjUd6jKp9-I71GItqOlAA_s1vZEepz";
-const $=id=>document.getElementById(id);let allUsers=[],sb=null;
-function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=resolve;s.onerror=()=>reject(new Error('Could not load authentication library'));document.head.appendChild(s)})}
-const sdkReady=(async()=>{
- if(!window.supabase?.createClient){
-  try{await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js')}
-  catch(e){await loadScript('https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js')}
- }
- if(!window.supabase?.createClient)throw new Error('Authentication library unavailable. Check internet connection and reload.');
- sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
- return sb;
-})();
-function toast(s){$("toast").textContent=s;$("toast").classList.add("show");setTimeout(()=>$('toast').classList.remove('show'),2800)}
-function showLogin(){ $('dashboard').classList.add('hidden');$('loginPanel').classList.remove('hidden') }
-function showDash(){ $('loginPanel').classList.add('hidden');$('dashboard').classList.remove('hidden') }
-async function request(method='GET',payload){const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw Error('Please sign in');const r=await fetch('/api/admin',{method,cache:'no-store',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})});const d=await r.json().catch(()=>({}));if(!r.ok){const e=Error(d.error||'Request failed');e.status=r.status;throw e}return d}
-function stat(label,value){const e=document.createElement('article');e.className='stat-card';const l=document.createElement('div');l.className='muted';l.textContent=label;const v=document.createElement('strong');v.textContent=String(value??0);e.append(l,v);return e}
-function drawUsers(){const q=$('userSearch').value.toLowerCase();$('users').replaceChildren();allUsers.filter(u=>(u.name+' '+u.email).toLowerCase().includes(q)).forEach(u=>{const tr=document.createElement('tr');const td=(v)=>{const e=document.createElement('td');e.textContent=v;return e};tr.append(td(u.name||'—'),td(u.email||'—'),td(u.created_at?new Date(u.created_at).toLocaleDateString():'—'),td(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString():'Never'));const status=td(u.banned_until&&new Date(u.banned_until)>new Date()?'Blocked':'Active');tr.append(status);const actions=td('');const reset=document.createElement('button');reset.className='admin-action';reset.textContent='Reset password';reset.onclick=async()=>{if(!confirm('Send a password reset email to '+u.email+'?'))return;try{await request('POST',{action:'reset_password',userId:u.id});toast('Password reset email sent')}catch(e){toast(e.message)}};actions.append(reset);if(u.banned_until&&new Date(u.banned_until)>new Date()){const un=document.createElement('button');un.className='admin-action';un.textContent='Unblock';un.onclick=()=>accountAction(u,'unban');actions.append(un)}else{const sel=document.createElement('select');sel.className='admin-duration';[['1h','1 hour'],['24h','1 day'],['7d','7 days'],['30d','30 days'],['876000h','Long term']].forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;sel.append(o)});const ban=document.createElement('button');ban.className='admin-action danger-btn';ban.textContent='Block';ban.onclick=()=>accountAction(u,'ban',sel.value);actions.append(sel,ban)}tr.append(actions);$('users').append(tr)})}
-async function accountAction(u,action,duration){if(!confirm(`${action==='ban'?'Block':'Unblock'} ${u.email}?`))return;try{await request('POST',{action,userId:u.id,duration});toast('Account updated');await load()}catch(e){toast(e.message)}}
-async function load(){showLogin();$('notice').textContent='Checking administrator permission…';try{await sdkReady;const d=await request();showDash();$('notice').textContent='Verified Admin · '+(d.admin?.email||'');$('stats').replaceChildren(stat('Users',d.totals.users),stat('Chats',d.totals.chats),stat('Messages',d.totals.messages),stat('Active today',d.totals.activeToday));allUsers=d.users||[];drawUsers();$('maintenanceToggle').checked=!!d.maintenance?.maintenance_enabled;$('maintenanceText').value=d.maintenance?.maintenance_message||'';$('announcementRows').replaceChildren();(d.announcements||[]).forEach(a=>{const row=document.createElement('div');row.className='announcement-row';const t=document.createElement('span');t.textContent=a.title+' · '+new Date(a.created_at).toLocaleDateString();const b=document.createElement('button');b.className='admin-action danger-btn';b.textContent='Delete';b.onclick=async()=>{if(!confirm('Delete this announcement?'))return;try{await request('POST',{action:'delete_announcement',id:a.id});await load()}catch(e){toast(e.message)}};row.append(t,b);$('announcementRows').append(row)});$('categoryStats').replaceChildren();const cats=d.analytics?.categories||{};const total=Object.values(cats).reduce((a,b)=>a+b,0)||1;Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([name,n])=>{const row=document.createElement('div');row.className='category-row';const label=document.createElement('span');label.textContent=name;const pct=document.createElement('strong');pct.textContent=Math.round(n/total*100)+'%';const track=document.createElement('div');track.className='category-track';const fill=document.createElement('i');fill.style.width=Math.round(n/total*100)+'%';track.append(fill);row.append(label,pct,track);$('categoryStats').append(row)})}catch(e){showLogin();$('notice').textContent=e.status===403?'This account is not the configured administrator.':e.message}}
-$('adminLogin').addEventListener('submit',async e=>{e.preventDefault();e.stopPropagation();$('adminSubmit').disabled=true;$('adminSubmit').textContent='Verifying…';try{await sdkReady;const {error}=await sb.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});if(error)throw error;await load()}catch(e){toast(e.message||'Login failed');$('notice').textContent=e.message||'Login failed'}finally{$('adminSubmit').disabled=false;$('adminSubmit').textContent='Secure sign in';$('adminPassword').value=''}});
-$('saveMaintenance').onclick=async()=>{try{await request('POST',{action:'maintenance',enabled:$('maintenanceToggle').checked,message:$('maintenanceText').value});toast('Service status saved')}catch(e){toast(e.message)}};
-$('publishAnnouncement').onclick=async()=>{try{await request('POST',{action:'announcement',title:$('announcementTitle').value,message:$('announcementMessage').value});$('announcementTitle').value='';$('announcementMessage').value='';toast('Notification published');await load()}catch(e){toast(e.message)}};
-$('userSearch').oninput=drawUsers;$('adminSignOut').onclick=async()=>{await sb.auth.signOut();showLogin();toast('Signed out')};$('adminTheme').onclick=()=>document.body.classList.toggle('light');sdkReady.catch(e=>{$('notice').textContent=e.message;toast(e.message)});load();
+const SUPABASE_URL = "https://mskcclqkvmurlcwwfgyr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_rxjUd6jKp9-I71GItqOlAA_s1vZEepz";
+const $ = (id) => document.getElementById(id);
+let sb;
+let allUsers = [];
+let loading = false;
+
+function toast(message) {
+  const el = $("toast");
+  if (!el) return;
+  el.textContent = String(message || "Something went wrong");
+  el.classList.add("show");
+  clearTimeout(window.__nhToastTimer);
+  window.__nhToastTimer = setTimeout(() => el.classList.remove("show"), 3500);
+}
+function showLogin() {
+  $("dashboard").classList.add("hidden");
+  $("loginPanel").classList.remove("hidden");
+}
+function showDashboard() {
+  $("loginPanel").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+}
+function showNotice(message) {
+  const el = $("notice");
+  if (el) el.textContent = message;
+}
+function setLoginBusy(busy) {
+  const button = $("adminSubmit");
+  if (!button) return;
+  button.disabled = busy;
+  button.textContent = busy ? "Verifying…" : "Secure sign in";
+}
+
+async function requestAdmin(method = "GET", payload) {
+  const { data, error } = await sb.auth.getSession();
+  if (error) throw new Error("Could not read the saved login session. Please sign in again.");
+  const session = data?.session;
+  if (!session?.access_token) throw new Error("Your login session has expired. Please sign in again.");
+
+  const response = await fetch("/api/admin", {
+    method,
+    cache: "no-store",
+    headers: {
+      Authorization: "Bearer " + session.access_token,
+      "Content-Type": "application/json"
+    },
+    ...(payload ? { body: JSON.stringify(payload) } : {})
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(result.error || `Admin server returned HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+  return result;
+}
+
+function stat(label, value) {
+  const card = document.createElement("article");
+  card.className = "stat-card";
+  const title = document.createElement("div");
+  title.className = "muted";
+  title.textContent = label;
+  const number = document.createElement("strong");
+  number.textContent = String(value ?? 0);
+  card.append(title, number);
+  return card;
+}
+
+function drawUsers() {
+  const search = ($("userSearch")?.value || "").trim().toLowerCase();
+  const body = $("users");
+  body.replaceChildren();
+  allUsers.filter(user =>
+    `${user.name || ""} ${user.email || ""}`.toLowerCase().includes(search)
+  ).forEach(user => {
+    const tr = document.createElement("tr");
+    const cell = value => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      return td;
+    };
+    tr.append(
+      cell(user.name || "—"),
+      cell(user.email || "—"),
+      cell(user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"),
+      cell(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Never")
+    );
+    tr.append(cell(user.banned_until && new Date(user.banned_until) > new Date() ? "Blocked" : "Active"));
+
+    const actions = cell("");
+    const reset = document.createElement("button");
+    reset.className = "admin-action";
+    reset.textContent = "Reset password";
+    reset.onclick = async () => {
+      if (!confirm(`Send a password reset email to ${user.email}?`)) return;
+      try {
+        await requestAdmin("POST", { action: "reset_password", userId: user.id });
+        toast("Password reset email sent");
+      } catch (error) { toast(error.message); }
+    };
+    actions.append(reset);
+
+    if (user.banned_until && new Date(user.banned_until) > new Date()) {
+      const unblock = document.createElement("button");
+      unblock.className = "admin-action";
+      unblock.textContent = "Unblock";
+      unblock.onclick = () => accountAction(user, "unban");
+      actions.append(unblock);
+    } else {
+      const select = document.createElement("select");
+      select.className = "admin-duration";
+      [["1h","1 hour"],["24h","1 day"],["7d","7 days"],["30d","30 days"],["876000h","Long term"]]
+        .forEach(([value, label]) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          select.append(option);
+        });
+      const block = document.createElement("button");
+      block.className = "admin-action danger-btn";
+      block.textContent = "Block";
+      block.onclick = () => accountAction(user, "ban", select.value);
+      actions.append(select, block);
+    }
+    tr.append(actions);
+    body.append(tr);
+  });
+}
+
+async function accountAction(user, action, duration) {
+  const verb = action === "ban" ? "Block" : "Unblock";
+  if (!confirm(`${verb} ${user.email || "this account"}?`)) return;
+  try {
+    await requestAdmin("POST", { action, userId: user.id, duration });
+    toast("Account updated");
+    await loadAdmin();
+  } catch (error) { toast(error.message); }
+}
+
+async function loadAdmin() {
+  if (loading) return;
+  loading = true;
+  showNotice("Checking saved session and verifying administrator access…");
+  try {
+    const result = await requestAdmin();
+    showDashboard();
+    showNotice("Verified administrator · " + (result.admin?.email || "Access confirmed"));
+
+    $("stats").replaceChildren(
+      stat("Users", result.totals?.users),
+      stat("Chats", result.totals?.chats),
+      stat("Messages", result.totals?.messages),
+      stat("Active today", result.totals?.activeToday)
+    );
+
+    allUsers = result.users || [];
+    drawUsers();
+    $("maintenanceToggle").checked = !!result.maintenance?.maintenance_enabled;
+    $("maintenanceText").value = result.maintenance?.maintenance_message || "";
+
+    $("announcementRows").replaceChildren();
+    (result.announcements || []).forEach(item => {
+      const row = document.createElement("div");
+      row.className = "announcement-row";
+      const label = document.createElement("span");
+      label.textContent = `${item.title} · ${new Date(item.created_at).toLocaleDateString()}`;
+      const remove = document.createElement("button");
+      remove.className = "admin-action danger-btn";
+      remove.textContent = "Delete";
+      remove.onclick = async () => {
+        if (!confirm("Delete this announcement?")) return;
+        try {
+          await requestAdmin("POST", { action: "delete_announcement", id: item.id });
+          toast("Announcement deleted");
+          await loadAdmin();
+        } catch (error) { toast(error.message); }
+      };
+      row.append(label, remove);
+      $("announcementRows").append(row);
+    });
+
+    $("categoryStats").replaceChildren();
+    const categories = result.analytics?.categories || {};
+    const total = Object.values(categories).reduce((sum, count) => sum + Number(count || 0), 0) || 1;
+    Object.entries(categories).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
+      const row = document.createElement("div");
+      row.className = "category-row";
+      const label = document.createElement("span");
+      label.textContent = name;
+      const percent = Math.round(Number(count || 0) / total * 100);
+      const value = document.createElement("strong");
+      value.textContent = percent + "%";
+      const track = document.createElement("div");
+      track.className = "category-track";
+      const fill = document.createElement("i");
+      fill.style.width = percent + "%";
+      track.append(fill);
+      row.append(label, value, track);
+      $("categoryStats").append(row);
+    });
+  } catch (error) {
+    const status = error.status;
+    if (status === 401 || status === 403) {
+      // Only clear a session when the server explicitly rejects it.
+      await sb.auth.signOut();
+      showLogin();
+    } else {
+      // Keep a valid Supabase session if the admin API/config is temporarily unavailable.
+      showLogin();
+    }
+    showNotice(error.message);
+    toast(error.message);
+  } finally {
+    loading = false;
+  }
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  setLoginBusy(true);
+  try {
+    const email = $("adminEmail").value.trim().toLowerCase();
+    const password = $("adminPassword").value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data?.session) throw new Error("Supabase did not create a login session. Check email confirmation and account status.");
+    // Session is persisted by Supabase in this browser; server then independently verifies ADMIN_EMAIL.
+    await loadAdmin();
+  } catch (error) {
+    toast(error.message || "Login failed");
+    showNotice(error.message || "Login failed");
+  } finally {
+    setLoginBusy(false);
+    $("adminPassword").value = "";
+  }
+}
+
+async function initAdmin() {
+  try {
+    if (!window.supabase?.createClient) {
+      throw new Error("Supabase authentication library did not load. Check internet and reload.");
+    }
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+
+    $("adminLogin").addEventListener("submit", handleLogin);
+    $("adminSignOut").addEventListener("click", async () => {
+      await sb.auth.signOut();
+      showLogin();
+      toast("Signed out");
+    });
+    $("adminTheme").addEventListener("click", () => document.body.classList.toggle("light"));
+    $("userSearch").addEventListener("input", drawUsers);
+    $("saveMaintenance").addEventListener("click", async () => {
+      try {
+        await requestAdmin("POST", {
+          action: "maintenance",
+          enabled: $("maintenanceToggle").checked,
+          message: $("maintenanceText").value
+        });
+        toast("Service status saved");
+        await loadAdmin();
+      } catch (error) { toast(error.message); }
+    });
+    $("publishAnnouncement").addEventListener("click", async () => {
+      const title = $("announcementTitle").value.trim();
+      const message = $("announcementMessage").value.trim();
+      if (!title || !message) { toast("Enter both announcement title and message"); return; }
+      try {
+        await requestAdmin("POST", { action: "announcement", title, message });
+        $("announcementTitle").value = "";
+        $("announcementMessage").value = "";
+        toast("Notification published");
+        await loadAdmin();
+      } catch (error) { toast(error.message); }
+    });
+
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
+    if (data?.session) {
+      showDashboard();
+      await loadAdmin();
+    } else {
+      showLogin();
+      showNotice("Please sign in with the configured administrator account.");
+    }
+  } catch (error) {
+    showLogin();
+    showNotice(error.message);
+    toast(error.message);
+  }
+}
+
+initAdmin();

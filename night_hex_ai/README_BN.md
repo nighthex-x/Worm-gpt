@@ -99,3 +99,11 @@ Supabase → SQL Editor-এ এই ZIP-এর `schema.sql` ফাইলের �
 
 ### Signup-এর পর সঙ্গে সঙ্গে Login
 Supabase Dashboard → Authentication → Sign In / Providers → Email-এ `Confirm email` OFF করলে নতুন অ্যাকাউন্ট তৈরি হওয়ার পর সঙ্গে সঙ্গে session তৈরি হবে এবং সাইটে ঢুকবে। Email ownership verify না হওয়ায় এটি কম নিরাপদ; public website-এ Confirm email ON রাখাই ভালো। Confirm email ON থাকলে inbox verification ছাড়া auto-login সম্ভব নয়।
+
+
+## Admin Login stability update
+- Admin browser session uses Supabase persistent session storage and auto-refresh.
+- Admin API independently checks the signed-in user and the server-side `ADMIN_EMAIL`.
+- The Admin API uses the configured Supabase Project URL in code; `SUPABASE_URL` is no longer required for Admin verification.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` and `ADMIN_EMAIL` only in Render Environment. Never place the service-role key in GitHub or browser code.
+- Render logs now include safe `/api/admin` request/response status lines; no passwords or access tokens are logged.

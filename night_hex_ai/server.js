@@ -16,7 +16,11 @@ app.use(express.json({ limit: "32kb" }));
 app.get("/health", (req, res) => res.status(200).json({ status: "NIGHT HEX AI is running" }));
 app.post("/api/chat", (req, res) => chatHandler(req, res));
 // Both dashboard reads and account-control actions must pass the same server-side check.
-app.all("/api/admin", (req, res) => adminHandler(req, res));
+app.all("/api/admin", (req, res) => {
+  console.info(`[NIGHT HEX ADMIN] ${req.method} /api/admin`);
+  res.on("finish", () => console.info(`[NIGHT HEX ADMIN] response ${res.statusCode}`));
+  return adminHandler(req, res);
+});
 app.all("/api/status", (req, res) => statusHandler(req, res));
 app.all("/api/share", (req, res) => shareHandler(req, res));
 app.get("/share/:token", (req, res) => res.sendFile(path.join(__dirname, "share.html")));

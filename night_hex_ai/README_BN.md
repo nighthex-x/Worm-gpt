@@ -48,7 +48,7 @@ Existing users can sign in from another phone using the same email and password.
 ## Admin login
 Open `https://YOUR-RENDER-SUBDOMAIN.onrender.com/admin`.
 
-Sign in with the same email configured in Render as `ADMIN_EMAIL`. Server-side API verification checks the email before returning admin statistics and user information or applying account blocks. Normal accounts cannot access the admin data. The admin can block accounts for 1 hour, 1 day, 7 days, 30 days, or a very long period (100 years), and can unblock them. This is not a literal permanent ban.
+Sign in with the same email configured in Render as `ADMIN_EMAIL`. The server validates the Supabase access token and compares the verified account email with `ADMIN_EMAIL` on every admin API request. Client-side role labels are never trusted. The dashboard stays hidden until that server check succeeds. Normal accounts cannot read admin data or perform account actions. The configured administrator account is protected from block/unblock actions. The admin can block accounts for 1 hour, 1 day, 7 days, 30 days, or a very long period (100 years), and can unblock them. This is not a literal permanent ban.
 
 Passwords are never displayed to administrators. Supabase handles password authentication securely.
 
@@ -60,5 +60,5 @@ Passwords are never displayed to administrators. Supabase handles password authe
 ## Important limitations
 - Render Free services may sleep after inactivity and take time to wake up.
 - AI provider, Supabase, and Render usage limits still apply.
-- The admin endpoint lists up to 1,000 users in this version. Chat requests from signed-in users include their access token so the server can reject active bans.
+- The admin endpoint lists up to 1,000 users in this version. On Render, both GET (dashboard) and POST (block/unblock) requests are routed through the same protected admin handler. Chat requests from signed-in users include their access token so the server can reject active bans.
 - This is an updated starter build, not a guarantee of production security or load testing. Add server-side rate limiting, privacy policy, backups, and monitoring before a public launch.

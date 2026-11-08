@@ -107,3 +107,11 @@ Supabase Dashboard → Authentication → Sign In / Providers → Email-এ `Con
 - The Admin API uses the configured Supabase Project URL in code; `SUPABASE_URL` is no longer required for Admin verification.
 - Keep `SUPABASE_SERVICE_ROLE_KEY` and `ADMIN_EMAIL` only in Render Environment. Never place the service-role key in GitHub or browser code.
 - Render logs now include safe `/api/admin` request/response status lines; no passwords or access tokens are logged.
+
+
+## Admin panel scroll and mobile layout update
+- Admin page now has its own vertical document scrolling; the chat app keeps its fixed-height layout.
+- Compact mobile dashboard cards and responsive user account rows.
+- Added refresh control, account status filter, and server/admin health indicators.
+- Existing maintenance, announcement, analytics, password-reset, block/unblock and persistent admin login flows are retained.
+- JavaScript syntax and admin HTML element references were checked locally. Live deployment still needs testing on the user's Render/Supabase project.

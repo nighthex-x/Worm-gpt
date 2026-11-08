@@ -1,56 +1,64 @@
-# NIGHT HEX AI — Vercel Starter
+# NIGHT HEX AI — Render-ready project
 
-এটি Vercel-এ deploy করার জন্য তৈরি text-only AI chat project।
+## Features
+- Mobile-first AI chat interface with dark/light themes
+- User-provided NIGHT HEX portrait logo (`assets/night-hex-logo.webp`)
+- Separate admin login page at `/admin`
+- Chat streaming through `/api/chat`
+- Supabase email/password authentication with immediate sign-in when email confirmation is disabled
+- Admin account controls: temporary blocks (1 hour, 1 day, 7 days, 30 days) and long-term block (100 years), plus unblock
+- Registered-user history saved in Supabase
+- Guest history saved locally in this browser using localStorage
+- Guest question counter (browser-local; not abuse-proof)
+- Sidebar closes using its close button, tapping outside, or selecting an item
+- Mobile pinch zoom is disabled in the page viewport
 
-## যা আছে
-- Dark responsive AI chat UI
-- Xrahat AI API-তে server-side proxy এবং SSE streaming
-- Guest mode-এ ৫টি প্রশ্ন (একই browser-এ local counter)
-- Email/password registration ও sign-in
-- Supabase-এ user-specific chat history
-- Admin overview API (নির্দিষ্ট Admin Email দিয়ে)
-- Developer credit `NIGHT HEX` → https://t.me/NightHex_X
-- Voice ও image upload নেই
-- AI response-এ provider metadata দেখানো হয় না
+## Deploy on Render
+Create a **Web Service** connected to this GitHub repository.
 
-## ১. Supabase তৈরি
-1. https://supabase.com এ project তৈরি করো।
-2. Project Settings → API থেকে Project URL এবং anon/public key নাও।
-3. SQL Editor-এ `schema.sql`-এর সব SQL চালাও।
-4. Authentication → Providers → Email চালু রাখো।
-5. Authentication → Settings-এ Email confirmation বন্ধ করো, যদি instant email/password signup চাও।
-6. Authentication → URL Configuration-এ তোমার Vercel deployment URL যোগ করো।
+- Runtime: Node
+- Build command: `npm install`
+- Start command: `npm start`
+- Instance: Free (if available)
 
-## ২. Frontend Supabase config
-`app.js`-এ নিচের দুটি placeholder বদলাও:
-- `YOUR_SUPABASE_PROJECT_URL`
-- `YOUR_SUPABASE_ANON_KEY`
+## Render Environment Variables
+Add these in Render → your Web Service → Environment:
 
-Anon/public key browser-এ ব্যবহার করা স্বাভাবিক; Service Role Key কখনো এখানে বসাবে না।
+- `SUPABASE_URL` = Supabase Project URL (without `/rest/v1/`)
+- `SUPABASE_SERVICE_ROLE_KEY` = Supabase backend Secret key or legacy service_role key
+- `ADMIN_EMAIL` = exact email address of the administrator account
 
-## ৩. Vercel deploy
-1. এই ZIP GitHub repository-তে upload করো।
-2. Vercel-এ New Project → Import Git Repository।
-3. Framework Preset: Other; Build Command ও Output Directory ফাঁকা রাখো।
-4. Deploy করো।
+Do not put the backend Secret/service_role key in GitHub, browser JavaScript, or share it in screenshots/messages. The frontend uses only the Supabase Publishable key.
 
-## ৪. Vercel Environment Variables
-Project → Settings → Environment Variables-এ যোগ করো:
-- `SUPABASE_URL` = Supabase Project URL
-- `SUPABASE_SERVICE_ROLE_KEY` = Supabase service_role key (শুধু server-side)
-- `ADMIN_EMAIL` = তোমার Admin account-এর exact email
+## Supabase frontend configuration
+The current Project URL and Publishable key are configured in `app.js` and `admin.js`. If you create a different Supabase project, update both files with that project's URL and Publishable key.
 
-তারপর Redeploy করো। Admin overview page `/admin.html` এবং endpoint `/api/admin`। `admin.js`-এও একই Supabase URL ও anon key বসাতে হবে। Admin endpoint ব্যবহার করতে signed-in user's access token `Authorization: Bearer <token>` হিসেবে পাঠাতে হয়। এই starter-এ Admin UI dashboard আলাদা করে সম্পূর্ণ সাজানো হয়নি; API endpoint প্রস্তুত আছে।
+The `schema.sql` file creates `chats` and `messages` tables with Row Level Security. It has already been applied in the user's project; do not rerun unless you intentionally need to recreate policies.
 
-## ৫. সীমাবদ্ধতা ও নিরাপত্তা
-- “Unlimited” মানে এই অ্যাপে registered user-এর জন্য কোনো নিজস্ব question cap নেই। AI provider, Supabase এবং Vercel-এর quota/usage limit প্রযোজ্য।
-- Email confirmation বন্ধ করলে ইমেইল মালিকানা যাচাই হয় না; যেকেউ অন্যের email লিখে account খুলতে পারে। তাই verified badge দেখানো হয় না।
-- Password কখনো admin-এর কাছে readable রাখা হয় না; Supabase secure password handling করে। Admin account reset/disable করতে পারে, কিন্তু আসল password দেখতে পারে না।
-- Guest limit browser-local; এটি শক্ত server-enforced abuse protection নয়।
-- Chat history সংরক্ষিত হয়। Publish করার আগে Privacy Policy ও data retention নিয়ম যোগ করো।
-- Admin API-তে প্রথম 1000 user পর্যন্ত তালিকা আনা হয়।
-- API provider-এর SSE event-এ `data: {"delta":"..."}` format প্রত্যাশা করা হয়েছে।
-- Production-এ rate limiting, abuse protection, pagination, admin UI এবং proper privacy controls আরও শক্ত করা উচিত।
+## Automatic sign-in after account creation
+To make a new user sign in immediately without manual/admin approval:
+1. Open Supabase Dashboard → Authentication → Sign In / Providers → Email.
+2. Turn **Confirm email** OFF and save.
+3. New signups should then return a session and the app signs the user in automatically.
 
-## Developer link
-`https://t.me/NightHex_X` — শুধু NIGHT HEX developer credit-এ ব্যবহার করা হয়েছে; কোনো channel link নেই।
+This means the app does not verify that the person owns the email address at signup. If you prefer verified email addresses, leave confirmation ON and users must confirm their email before signing in.
+
+Existing users can sign in from another phone using the same email and password. Supabase stores the session on each device; signing out on one device does not transfer the session to another.
+
+## Admin login
+Open `https://YOUR-RENDER-SUBDOMAIN.onrender.com/admin`.
+
+Sign in with the same email configured in Render as `ADMIN_EMAIL`. Server-side API verification checks the email before returning admin statistics and user information or applying account blocks. Normal accounts cannot access the admin data. The admin can block accounts for 1 hour, 1 day, 7 days, 30 days, or a very long period (100 years), and can unblock them. This is not a literal permanent ban.
+
+Passwords are never displayed to administrators. Supabase handles password authentication securely.
+
+## Chat history
+- Guest chat history is stored in localStorage on the current browser/device. Clearing browser site data or changing devices removes/does not carry over that guest history.
+- Signed-in chat history is stored in Supabase under the signed-in user and protected by RLS.
+- Guest usage limits are stored locally and can be reset by clearing browser storage; this is not a robust server-side rate limit.
+
+## Important limitations
+- Render Free services may sleep after inactivity and take time to wake up.
+- AI provider, Supabase, and Render usage limits still apply.
+- The admin endpoint lists up to 1,000 users in this version. Chat requests from signed-in users include their access token so the server can reject active bans.
+- This is an updated starter build, not a guarantee of production security or load testing. Add server-side rate limiting, privacy policy, backups, and monitoring before a public launch.

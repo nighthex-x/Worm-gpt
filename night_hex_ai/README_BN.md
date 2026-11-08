@@ -125,3 +125,16 @@ Supabase Dashboard → Authentication → Sign In / Providers → Email-এ `Con
 - Admin page scrolling and modal scrolling are enabled for mobile screens.
 - Chat stream headers are flushed immediately where supported; actual provider latency still depends on the upstream AI service.
 - Client-side response cleanup replaces common accidental Rofiqul/Rahat identity mentions with NIGHT HEX branding.
+
+## Response speed + live maintenance update (9 November 2026)
+- The chat request now starts without waiting for chat-history writes. User/assistant history is saved after the answer has streamed, so database writes do not hold back the first AI token.
+- The loading indicator stays visible until the first actual response text arrives; then the answer is rendered progressively as upstream chunks arrive.
+- The stream reader preserves spaces between chunks and understands common SSE/OpenAI/Anthropic-style text events plus common JSON response shapes. The upstream provider still controls its own generation speed and first-token delay.
+- Branding cleanup is restricted to clear self-identification phrases (for example, “I am Xrahat AI” or “My name is Rofiqul”). Ordinary mentions of those names in the body are left unchanged.
+- The User Panel checks maintenance/notices every 5 seconds while visible, and refreshes immediately when the tab becomes active again. Chat API independently checks the latest database setting on every request, so a user cannot bypass maintenance by skipping the browser popup.
+- The server checks the maintenance expiry timestamp itself. Expired maintenance becomes inactive; an Admin manual stop is effective on the next status refresh (normally within 5 seconds) and the next chat request.
+- Admin updates to announcements are reflected on the next status refresh. The status endpoint disables caching.
+
+**Deploy this update:** replace the repository files with the contents of this ZIP and deploy the latest commit on Render. No SQL rerun is required for this update, and do not change Render environment variables unless Render logs show a specific configuration error. Keep `SUPABASE_SERVICE_ROLE_KEY` private in Render only.
+
+**Verification performed for this ZIP:** JavaScript syntax checks, branding replacement test cases, HTML parsing, CSS delimiter checks, and ZIP integrity checks. This environment cannot verify live Render/Supabase/upstream behavior; test the deployed site with a separate normal user account after deployment.

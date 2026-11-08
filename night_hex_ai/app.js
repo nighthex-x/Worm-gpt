@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY="sb_publishable_rxjUd6jKp9-I71GItqOlAA_s1vZEepz";
 const supabaseReady=SUPABASE_URL.startsWith("https://")&&!SUPABASE_ANON_KEY.includes("YOUR_");
 const sb=supabaseReady?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 const $=id=>document.getElementById(id);
-let currentUser=null,authMode="signin",busy=false,activeChatId=null,chatTitle="New chat",announcements=[];
+let currentUser=null,authMode="signin",busy=false,activeChatId=null,chatTitle="New chat",announcements=[],maintenanceActive=false,statusUnavailable=false,statusCheckInFlight=false;
 let guestCount=Number(localStorage.getItem("nh_guest_count")||0);
 let guestChats=[];try{guestChats=JSON.parse(localStorage.getItem("nh_guest_chats")||"[]");if(!Array.isArray(guestChats))guestChats=[]}catch{guestChats=[]}
 const GUEST_LIMIT=5;
@@ -12,7 +12,14 @@ function showModal(id){$(id).classList.add("open")}
 function hideModal(id){$(id).classList.remove("open")}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderText(t){return escapeHtml(t).replace(/```([\s\S]*?)```/g,(_,c)=>`<pre><code>${c.trim()}</code></pre>`).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}
-function normalizeBranding(text){return String(text||"").replace(/\bX\s*Rahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bXrahat\b/gi,"NIGHT HEX").replace(/\bRahat\s*AI\b/gi,"NIGHT HEX AI").replace(/\bRahat\b/gi,"NIGHT HEX").replace(/\b(?:my name is|i am|i'm)\s+Rofiqul(?:\s+Hossain)?\b/gi,"I am NIGHT HEX AI").replace(/আমার নাম\s+রফিকুল(?:\s+হোসেন)?/gi,"আমি NIGHT HEX AI").replace(/রাহাত\s*এআই/gi,"NIGHT HEX AI").replace(/রাহাত/gi,"NIGHT HEX")}
+function normalizeBranding(text){
+ // Change only explicit self-identification phrases. Do not rewrite names mentioned in normal answers.
+ return String(text||"")
+  .replace(/\b(?:I\s+am|I\'m|I\s+am\s+an|my\s+name\s+is|this\s+is|you\s+are\s+talking\s+to|you\'re\s+talking\s+to|as)\s+(?:the\s+)?(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul(?:\s+Hossain)?)(?:\s+AI)?\b/gi, "I am NIGHT HEX AI")
+  .replace(/^\s*(?:X\s*Rahat|Xrahat|Extra\s*Hat|Rahat|Rofiqul)\s+AI\b/gim, "NIGHT HEX AI")
+  .replace(/আমার নাম\s+(?:এক্সরাহাত|রাহাত|রফিকুল)(?:\s+হোসেন)?/gi, "আমার নাম NIGHT HEX AI")
+  .replace(/আমি\s+(?:এক্স\s*রাহাত|এক্সরাহাত|এক্সট্রা\s*হ্যাট|রাহাত|রফিকুল)(?:\s+এআই)?/gi, "আমি NIGHT HEX AI");
+}
 function nearBottom(){const m=$("messages");return m.scrollHeight-m.scrollTop-m.clientHeight<140}
 function scrollLatest(force=false){const m=$("messages");if(force||nearBottom())m.scrollTo({top:m.scrollHeight,behavior:"smooth"})}
 function updateScrollButton(){const m=$("messages");$("scrollBottom").classList.toggle("hidden",m.scrollHeight-m.scrollTop-m.clientHeight<180)}
@@ -87,15 +94,44 @@ function scanning(){
  row.innerHTML='<span class="loader-orbit" aria-label="Generating response"><i></i><b></b></span>';
  $("messages").append(row);scrollLatest();return row;
 }
+function extractStreamText(ev){
+ if(typeof ev==="string")return ev;
+ if(!ev||typeof ev!=="object")return "";
+ if(typeof ev.delta==="string")return ev.delta;
+ if(typeof ev.delta?.text==="string")return ev.delta.text;
+ if(typeof ev.content==="string")return ev.content;
+ if(typeof ev.text==="string")return ev.text;
+ if(typeof ev.token==="string")return ev.token;
+ if(typeof ev.response==="string")return ev.response;
+ if(typeof ev.output_text==="string")return ev.output_text;
+ const choice=ev.choices?.[0];
+ if(typeof choice?.delta?.content==="string")return choice.delta.content;
+ if(typeof choice?.text==="string")return choice.text;
+ if(typeof choice?.message?.content==="string")return choice.message.content;
+ if(typeof ev.message?.content==="string")return ev.message.content;
+ if(typeof ev.data?.delta==="string")return ev.data.delta;
+ if(typeof ev.data?.text==="string")return ev.data.text;
+ if(typeof ev.data?.content==="string")return ev.data.content;
+ if(typeof ev.delta?.content==="string")return ev.delta.content;
+ const part=ev.candidates?.[0]?.content?.parts?.[0]?.text;
+ if(typeof part==="string")return part;
+ return "";
+}
+function parseProviderEvent(raw){
+ const original=String(raw??""),value=original.trim();if(!value||value==="[DONE]")return {done:value==="[DONE]",text:""};
+ try{const ev=JSON.parse(value);return {done:ev.done===true||ev.type==="response.completed"||ev.type==="message_stop",text:extractStreamText(ev),error:ev.error?.message||ev.error||null};}
+ catch{return {done:false,text:original};}
+}
 async function sendMessage(prefill){
- if(busy)return;const text=(prefill??$("prompt").value).trim();if(!text)return;
+ if(busy)return;if(maintenanceActive||statusUnavailable){toast("NIGHT HEX AI is temporarily unavailable.");return;}const text=(prefill??$("prompt").value).trim();if(!text)return;
  if(!currentUser&&guestCount>=GUEST_LIMIT){setMode("signup");showModal("authModal");toast("Guest limit reached. Create an account to continue.");return}
  if(!supabaseReady){toast("Supabase setup is not configured.");return}
  $("prompt").value="";$("prompt").style.height="auto";busy=true;$("sendBtn").disabled=true;
  addMessage("user",text);
  if(!currentUser){guestCount++;localStorage.setItem("nh_guest_count",guestCount);persistGuestMessage("user",text);setUsage()}
- const chatId=await ensureChat(text);if(currentUser&&chatId)await saveMessage(chatId,"user",text);
+ const chatIdPromise=ensureChat(text); // Start creating the conversation without blocking the API request.
  const loader=scanning();let assistantBubble=null,answer="";
+ const appendStreamText=chunk=>{if(!chunk)return;if(!assistantBubble){loader.remove();assistantBubble=addMessage("assistant","")}answer+=chunk;assistantBubble.innerHTML=renderText(normalizeBranding(answer));scrollLatest();updateScrollButton()};
  try{
   const sessionResult=currentUser?await sb.auth.getSession():{data:{session:null}};
   const authHeaders={"Content-Type":"application/json","Accept":"text/event-stream"};
@@ -105,20 +141,35 @@ async function sendMessage(prefill){
   const type=response.headers.get("content-type")||"";
   if(type.includes("text/event-stream")&&response.body){
    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="",done=false;
-   assistantBubble=addMessage("assistant","");loader.remove();
-   while(!done){const part=await reader.read();done=part.done;buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!done});const lines=buffer.split(/\r?\n/);buffer=lines.pop()||"";
-    for(const line of lines){if(!line.startsWith("data:"))continue;const raw=line.slice(5).trim();if(!raw)continue;if(raw==="[DONE]"){done=true;break}
-     try{const ev=JSON.parse(raw);if(ev.delta){answer+=ev.delta;assistantBubble.innerHTML=renderText(answer);scrollLatest();updateScrollButton()}if(ev.error)throw new Error(ev.error)}catch(e){if(e instanceof SyntaxError)continue;throw e}
+   while(!done){
+    const part=await reader.read();done=part.done;
+    buffer+=decoder.decode(part.value||new Uint8Array(),{stream:!done});
+    const events=buffer.split(/\r?\n\r?\n/);buffer=events.pop()||"";
+    for(const block of events){
+     const dataLines=block.split(/\r?\n/).filter(line=>line.startsWith("data:")).map(line=>line.slice(5).replace(/^ /, ""));
+     const raw=dataLines.join("\n");if(!raw.trim())continue;
+     const parsed=parseProviderEvent(raw);if(parsed.done){done=true;break;}
+     if(parsed.error)throw new Error(typeof parsed.error==="string"?parsed.error:"AI provider error");
+     if(parsed.text)appendStreamText(parsed.text);
     }
    }
-  }else{const data=await response.json();if(data.error)throw new Error(data.error);answer=data.reply||"";if(!answer)throw new Error("AI response was empty.");loader.remove();assistantBubble=addMessage("assistant",answer)}
+   if(buffer.trim()){
+    const raw=buffer.split(/\r?\n/).filter(line=>line.startsWith("data:")).map(line=>line.slice(5).replace(/^ /, '')).join("\n")||buffer;
+    const parsed=parseProviderEvent(raw);if(parsed.error)throw new Error(typeof parsed.error==="string"?parsed.error:"AI provider error");if(parsed.text)appendStreamText(parsed.text);
+   }
+  }else{
+   const data=await response.json();if(data.error)throw new Error(data.error);
+   answer=data.reply||data.answer||data.response||data.output_text||data.message?.content||data.choices?.[0]?.message?.content||"";
+   if(!answer)throw new Error("AI response was empty.");loader.remove();assistantBubble=addMessage("assistant",normalizeBranding(answer));
+  }
   if(!answer.trim())throw new Error("The AI returned an empty response.");
   answer=normalizeBranding(answer);
   if(assistantBubble)assistantBubble.innerHTML=renderText(answer);
   addCopy(assistantBubble,answer);
-  if(currentUser&&chatId){await saveMessage(chatId,"assistant",answer);$("chatActions").classList.remove("hidden");await loadHistory()}else if(!currentUser){persistGuestMessage("assistant",answer)}
- }catch(err){loader.remove();addMessage("assistant",`Sorry, I couldn't get a response. ${err.message||"Please try again."}`);console.error(err)}
- finally{busy=false;$("sendBtn").disabled=false;$("prompt").focus()}
+  if(currentUser){const chatId=await chatIdPromise;if(chatId){await saveMessage(chatId,"user",text);await saveMessage(chatId,"assistant",answer);$("chatActions").classList.remove("hidden");await loadHistory()}}
+  else{persistGuestMessage("assistant",answer)}
+ }catch(err){loader.remove();if(currentUser){const failedChatId=await chatIdPromise.catch(()=>null);if(failedChatId)await saveMessage(failedChatId,"user",text)}addMessage("assistant",`Sorry, I couldn't get a response. ${err.message||"Please try again."}`);console.error(err)}
+ finally{busy=false;$("sendBtn").disabled=maintenanceActive||statusUnavailable;$("prompt").disabled=maintenanceActive||statusUnavailable;$("prompt").focus()}
 }
 function makeGuestUid(){const id="guest_"+crypto.randomUUID();localStorage.setItem("nh_guest_uid",id);return id}
 $("sendBtn").onclick=()=>sendMessage();
@@ -134,8 +185,28 @@ $("renameChatBtn").onclick=async()=>{if(!activeChatId)return toast('Open a saved
 $("deleteChatBtn").onclick=async()=>{if(!activeChatId||!confirm('Delete this conversation permanently?'))return;try{if(currentUser){const {error}=await sb.from('chats').delete().eq('id',activeChatId);if(error)throw error;await loadHistory()}else{guestChats=guestChats.filter(c=>c.id!==activeChatId);saveGuestChats();renderHistory()}newChat();toast('Conversation deleted')}catch(e){toast('Could not delete conversation')}};
 $("shareChatBtn").onclick=async()=>{if(!currentUser||!activeChatId)return toast('Sign in and open a saved conversation to share');try{const {data:{session}}=await sb.auth.getSession();const r=await fetch('/api/share',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({chatId:activeChatId})});const d=await r.json();if(!r.ok)throw Error(d.error||'Share failed');const url=d.url||location.origin+'/share/'+d.token;await navigator.clipboard.writeText(url);toast('Share link copied')}catch(e){toast(e.message||'Could not create share link')}};
 $("messages").addEventListener('scroll',updateScrollButton);$("scrollBottom").onclick=()=>{scrollLatest(true);$("scrollBottom").classList.add('hidden')};
-async function refreshPublicStatus(){try{const {data:{session}}=sb?await sb.auth.getSession():{data:{session:null}};const r=await fetch('/api/status',{cache:'no-store',headers:session?.access_token?{Authorization:'Bearer '+session.access_token}:{}});const d=await r.json();announcements=d.announcements||[];const bar=$('announcementBar');bar.replaceChildren();if(announcements.length){bar.classList.remove('hidden');announcements.forEach(a=>{const p=document.createElement('div');p.className='announcement-pill';p.textContent='● '+a.title+': '+a.message;bar.append(p)});$('notificationDot').classList.remove('hidden')}else bar.classList.add('hidden');if(d.maintenance){$('maintenanceMessage').textContent=d.message||'NIGHT HEX AI is temporarily under maintenance.';$('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true}else{$('maintenanceModal').classList.remove('open');$('sendBtn').disabled=busy;$('prompt').disabled=false}}catch(e){console.warn('Status check failed',e)}}
-setInterval(refreshPublicStatus,45000);
+async function refreshPublicStatus(){
+ if(statusCheckInFlight)return;statusCheckInFlight=true;
+ try{
+  const {data:{session}}=sb?await sb.auth.getSession():{data:{session:null}};
+  const r=await fetch('/api/status',{cache:'no-store',headers:session?.access_token?{Authorization:'Bearer '+session.access_token}:{}});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.message||d.error||'Could not verify website status');
+  statusUnavailable=false;maintenanceActive=!!d.maintenance;announcements=d.announcements||[];
+  const bar=$('announcementBar');bar.replaceChildren();
+  if(announcements.length){bar.classList.remove('hidden');announcements.forEach(a=>{const p=document.createElement('div');p.className='announcement-pill';p.textContent='● '+a.title+': '+a.message;bar.append(p)});$('notificationDot').classList.remove('hidden')}else{bar.classList.add('hidden');$('notificationDot').classList.add('hidden')}
+  if(maintenanceActive){$('maintenanceMessage').textContent=d.message||'NIGHT HEX AI is temporarily under maintenance.';$('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true;$('prompt').placeholder='Website is under maintenance';}
+  else{$('maintenanceModal').classList.remove('open');$('sendBtn').disabled=busy;$('prompt').disabled=false;$('prompt').placeholder='Message NIGHT HEX AI...';}
+ }catch(e){
+  console.warn('Status check failed',e);statusUnavailable=true;maintenanceActive=true;
+  $('maintenanceMessage').textContent=e.message||'NIGHT HEX AI is temporarily unavailable. Please try again shortly.';
+  $('maintenanceModal').classList.add('open');$('sendBtn').disabled=true;$('prompt').disabled=true;$('prompt').placeholder='Temporarily unavailable';
+ }finally{statusCheckInFlight=false;}
+}
+// Poll frequently for admin changes; also refresh immediately when the tab becomes visible again.
+setInterval(()=>{if(document.visibilityState==='visible')refreshPublicStatus()},5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshPublicStatus()});
+window.addEventListener('focus',refreshPublicStatus);
 $('notificationBtn').onclick=()=>{const box=$('notificationList');box.replaceChildren();if(!announcements.length){box.textContent='No new notifications.'}else announcements.forEach(a=>{const el=document.createElement('article');el.className='notification-item';const h=document.createElement('strong');h.textContent=a.title;const p=document.createElement('p');p.textContent=a.message;el.append(h,p);box.append(el)});$('notificationDot').classList.add('hidden');showModal('notificationsModal')};
 $("themeToggle").onclick=()=>{document.body.classList.toggle("light");localStorage.setItem("nh_theme",document.body.classList.contains("light")?"light":"dark")};
 $("menuBtn").onclick=openDrawer;$("closeMenu").onclick=closeDrawer;$("drawerScrim").onclick=closeDrawer;

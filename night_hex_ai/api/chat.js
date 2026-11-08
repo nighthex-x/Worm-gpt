@@ -51,7 +51,10 @@ export default async function handler(req, res) {
     // Keep the user's prompt untouched so the upstream assistant answers the actual question.
     // Branding is corrected narrowly in the client only if the provider names itself incorrectly.
     url.searchParams.set("text", text); url.searchParams.set("uid", safeUid); url.searchParams.set("stream", "1");
-    const upstream = await fetch(url, { headers: { Accept: "text/event-stream" }, signal: AbortSignal.timeout(55000) });
+    const clientController = new AbortController();
+    const abortIfClientLeaves = () => { if (!res.writableEnded) clientController.abort(); };
+    res.on("close", abortIfClientLeaves);
+    const upstream = await fetch(url, { headers: { Accept: "text/event-stream" }, signal: AbortSignal.any([clientController.signal, AbortSignal.timeout(55000)]) });
     if (!upstream.ok) { const detail = await upstream.text(); return res.status(502).json({ error: `AI provider returned ${upstream.status}`, detail: detail.slice(0, 300) }); }
     const type = upstream.headers.get("content-type") || "";
     if (!upstream.body) return res.status(502).json({ error: "AI provider returned no response stream" });
@@ -61,9 +64,10 @@ export default async function handler(req, res) {
     const reader = upstream.body.getReader();
     while (true) { const { value, done } = await reader.read(); if (done) break; if (!res.write(Buffer.from(value))) await new Promise(resolve => res.once("drain", resolve)); if (typeof res.flush === "function") res.flush(); }
     res.end();
+    res.removeListener("close", abortIfClientLeaves);
   } catch (error) {
     console.error("Chat API error:", error);
     if (!res.headersSent) return res.status(502).json({ error: "Could not connect to AI provider. Please try again." });
-    res.end();
+    if (!res.writableEnded) res.end();
   }
 }
